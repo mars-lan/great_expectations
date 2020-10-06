@@ -90,13 +90,13 @@ class ExpectColumnMostCommonValueToBeInSet(DatasetExpectation):
 
     """ A Column Map Metric Decorator for the Mode metric"""
 
-    @PandasExecutionEngine.metric(
-        metric_name="column.aggregate.mode",
-        metric_domain_keys=DatasetExpectation.domain_keys,
-        metric_value_keys=(),
-        metric_dependencies=tuple(),
-        filter_column_isnull=False,
-    )
+    # @PandasExecutionEngine.metric(
+    #        metric_name="column.aggregate.mode",
+    #        metric_domain_keys=DatasetExpectation.domain_keys,
+    #        metric_value_keys=(),
+    #        metric_dependencies=tuple(),
+    #        filter_column_isnull=False,
+    #    )
     def _pandas_mode(
         self,
         batches: Dict[str, Batch],

@@ -99,13 +99,13 @@ class ExpectColumnProportionOfUniqueValuesToBeBetween(DatasetExpectation):
 
     """ A Column Aggregate Metric Decorator for the Unique Proportion"""
 
-    @PandasExecutionEngine.metric(
-        metric_name="column.aggregate.unique_proportion",
-        metric_domain_keys=DatasetExpectation.domain_keys,
-        metric_value_keys=(),
-        metric_dependencies=tuple(),
-        filter_column_isnull=False,
-    )
+    # @PandasExecutionEngine.metric(
+    #        metric_name="column.aggregate.unique_proportion",
+    #        metric_domain_keys=DatasetExpectation.domain_keys,
+    #        metric_value_keys=(),
+    #        metric_dependencies=tuple(),
+    #        filter_column_isnull=False,
+    #    )
     def _pandas_unique_proportion(
         self,
         batches: Dict[str, Batch],

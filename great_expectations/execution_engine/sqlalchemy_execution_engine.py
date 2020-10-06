@@ -3,7 +3,7 @@ import logging
 import uuid
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 from sqlalchemy.engine import reflection
@@ -585,6 +585,16 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
         self._loaded_batch_id = batch_id
         return batch
 
+    def _get_metric_domain_obj(
+        self,
+        domain_kwargs: dict,
+        batches: Dict[str, Batch] = None,
+        filter_column_isnull=True,
+    ):
+        if "column" in domain_kwargs:
+            return sa.column(domain_kwargs["column"])
+        return self._get_selectable(domain_kwargs=domain_kwargs, batches=batches)
+
     def _get_selectable(
         self, domain_kwargs: dict = None, batches: Dict[str, Batch] = None
     ) -> sa.sql.Selectable:
@@ -835,12 +845,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
 
     @classmethod
     def column_map_metric(
-        cls,
-        metric_name: str,
-        metric_domain_keys: Tuple[str, ...],
-        metric_value_keys: Tuple[str, ...],
-        metric_dependencies: Tuple[str, ...],
-        filter_column_isnull: bool = True,
+        cls, metric_class: Type["Metric"],
     ):
         """
         A decorator for declaring a metric provider for instances of map Expectations, registering the metric itself
@@ -849,6 +854,10 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
         Returns:
             A generic metric provider function, which includes an expected metric condition.
         """
+        metric_name = metric_class.metric_name
+        metric_domain_keys = metric_class.domain_keys
+        metric_value_keys = metric_class.value_keys
+        filter_column_isnull = metric_class.filter_column_isnull
 
         def outer(metric_fn: Callable):
             _declared_name = metric_name
@@ -873,6 +882,8 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
                     metrics=metrics,
                     metric_domain_kwargs=metric_domain_kwargs,
                     metric_value_kwargs=metric_value_kwargs,
+                    domain=column,
+                    **metric_value_kwargs,
                     **kwargs,
                 )
                 if filter_column_isnull:
@@ -888,7 +899,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=metric_value_keys,
                 execution_engine=cls,
-                metric_dependencies=tuple(),
+                metric_class=metric_class,
                 metric_provider=inner_func,
                 bundle_computation=False,
                 filter_column_isnull=filter_column_isnull,
@@ -898,7 +909,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=metric_value_keys,
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_count,
                 bundle_computation=True,
                 filter_column_isnull=filter_column_isnull,
@@ -909,7 +920,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=(*metric_value_keys, "result_format"),
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_values,
                 bundle_computation=False,
                 filter_column_isnull=filter_column_isnull,
@@ -920,7 +931,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=(*metric_value_keys, "result_format"),
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_value_counts,
                 bundle_computation=False,
                 filter_column_isnull=filter_column_isnull,
@@ -931,7 +942,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine):
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=(*metric_value_keys, "result_format"),
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_rows,
                 bundle_computation=False,
                 filter_column_isnull=filter_column_isnull,

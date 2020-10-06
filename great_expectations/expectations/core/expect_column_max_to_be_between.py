@@ -110,13 +110,13 @@ class ExpectColumnMaxToBeBetween(DatasetExpectation):
 
     """ A Column Map Metric Decorator for the Maximum"""
 
-    @PandasExecutionEngine.metric(
-        metric_name="column.aggregate.max",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=(),
-        metric_dependencies=tuple(),
-        filter_column_isnull=False,
-    )
+    # @PandasExecutionEngine.metric(
+    #        metric_name="column.aggregate.max",
+    #        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #        metric_value_keys=(),
+    #        metric_dependencies=tuple(),
+    #        filter_column_isnull=False,
+    #    )
     def _pandas_max(
         self,
         batches: Dict[str, Batch],
@@ -132,6 +132,18 @@ class ExpectColumnMaxToBeBetween(DatasetExpectation):
         )
 
         return series.max()
+
+    # @SqlAlchemyExecutionEngine.metric(
+    #     metric_name="column.aggregate.max",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=(),
+    #     metric_dependencies=tuple(),
+    #     bundle_computation=True,
+    # )
+    def _sqlalchemy_max(
+        self, column,
+    ):
+        return sa.func.max(sa.column(column))
 
     def validate_configuration(self, configuration: Optional[ExpectationConfiguration]):
         """

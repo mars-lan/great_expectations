@@ -91,13 +91,13 @@ class ExpectColumnUniqueValueCountToBeBetween(DatasetExpectation):
 
     """ A Column Aggregate Metric Decorator for the Unique Value Count"""
 
-    @PandasExecutionEngine.metric(
-        metric_name="column.aggregate.unique_value_count",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=(),
-        metric_dependencies=tuple(),
-        filter_column_isnull=False,
-    )
+    # @PandasExecutionEngine.metric(
+    #        metric_name="column.aggregate.unique_value_count",
+    #        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #        metric_value_keys=(),
+    #        metric_dependencies=tuple(),
+    #        filter_column_isnull=False,
+    #    )
     def _pandas_unique_value_count(
         self,
         batches: Dict[str, Batch],

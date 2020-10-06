@@ -93,15 +93,15 @@ class ExpectColumnValueZScoresToBeLessThan(ColumnMapDatasetExpectation):
         "catch_exceptions": False,
     }
 
-    @PandasExecutionEngine.metric(
-        metric_name="column.z_scores",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=tuple(),
-        metric_dependencies=(
-            "column.aggregate.mean",
-            "column.aggregate.standard_deviation",
-        ),
-    )
+    # @PandasExecutionEngine.metric(
+    #     metric_name="column.z_scores",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=tuple(),
+    #     metric_dependencies=(
+    #         "column.aggregate.mean",
+    #         "column.aggregate.standard_deviation",
+    #     ),
+    # )
     def _pandas_z_scores(
         self,
         batches: Dict[str, Batch],
@@ -133,13 +133,13 @@ class ExpectColumnValueZScoresToBeLessThan(ColumnMapDatasetExpectation):
                 )
             )
 
-    @PandasExecutionEngine.column_map_metric(
-        metric_name="column_values.z_scores.under_threshold",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("threshold", "double_sided",),
-        metric_dependencies=("column.z_scores",),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.column_map_metric(
+    #     metric_name="column_values.z_scores.under_threshold",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("threshold", "double_sided",),
+    #     metric_dependencies=("column.z_scores",),
+    #     filter_column_isnull=True,
+    # )
     def _pandas_under_threshold(
         self,
         series: pd.Series,

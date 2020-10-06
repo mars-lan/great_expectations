@@ -2,6 +2,7 @@ import logging
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
 
 from great_expectations.core.id_dict import IDDict
+from great_expectations.core.metric import Metric
 from great_expectations.exceptions.metric_exceptions import MetricProviderError
 from great_expectations.validator.validation_graph import MetricEdgeKey
 
@@ -51,7 +52,8 @@ def register_metric(
     metric_domain_keys: Tuple[str],
     metric_value_keys: Tuple[str],
     execution_engine: Type["ExecutionEngine"],
-    metric_dependencies: Tuple[str],
+    # metric_dependencies: Tuple[str],
+    metric_class: Type["Metric"],
     metric_provider: Callable,
     bundle_computation: bool = False,
     filter_column_isnull: bool = True,
@@ -63,15 +65,15 @@ def register_metric(
     if metric_name in _registered_metrics:
         metric_definition = _registered_metrics[metric_name]
         current_dependencies = metric_definition.get("metric_dependencies", set())
-        if set(current_dependencies) != set(metric_dependencies):
-            logger.warning(
-                f"metric {metric_name} is being registered with different dependencies; overwriting dependencies"
-            )
-            _add_response_key(
-                res,
-                "warning",
-                f"metric {metric_name} is being registered with different dependencies; overwriting dependencies",
-            )
+        # if set(current_dependencies) != set(metric_dependencies):
+        #     logger.warning(
+        #         f"metric {metric_name} is being registered with different dependencies; overwriting dependencies"
+        #     )
+        #     _add_response_key(
+        #         res,
+        #         "warning",
+        #         f"metric {metric_name} is being registered with different dependencies; overwriting dependencies",
+        #     )
         current_domain_keys = metric_definition.get("metric_domain_keys", set())
         if set(current_domain_keys) != set(metric_domain_keys):
             logger.warning(
@@ -94,7 +96,7 @@ def register_metric(
             )
         providers = metric_definition.get("providers", dict())
         if execution_engine_name in providers:
-            current_provider_fn = providers[execution_engine_name]
+            current_provider_cls, current_provider_fn = providers[execution_engine_name]
             if current_provider_fn != metric_provider:
                 logger.warning(
                     f"metric {metric_name} is being registered with different metric_provider; overwriting metric_provider"
@@ -104,7 +106,7 @@ def register_metric(
                     "warning",
                     f"metric {metric_name} is being registered with different metric_provider; overwriting metric_provider",
                 )
-                providers[execution_engine_name] = metric_provider
+                providers[execution_engine_name] = metric_class, metric_provider
             else:
                 logger.info(
                     f"Multiple declarations of metric {metric_name} for engine {execution_engine_name}."
@@ -115,13 +117,12 @@ def register_metric(
                     f"Multiple declarations of metric {metric_name} for engine {execution_engine_name}.",
                 )
         else:
-            providers[execution_engine_name] = metric_provider
+            providers[execution_engine_name] = metric_class, metric_provider
     else:
         metric_definition = {
             "metric_domain_keys": metric_domain_keys,
             "metric_value_keys": metric_value_keys,
-            "metric_dependencies": metric_dependencies,
-            "providers": {execution_engine_name: metric_provider},
+            "providers": {execution_engine_name: (metric_class, metric_provider)},
             "filter_column_isnull": filter_column_isnull,
         }
         _registered_metrics[metric_name] = metric_definition

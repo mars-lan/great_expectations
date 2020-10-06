@@ -66,13 +66,13 @@ class ExpectColumnValuesToBeOfType(ColumnMapDatasetExpectation):
             raise InvalidExpectationConfigurationError(str(e))
         return True
 
-    @PandasExecutionEngine.column_map_metric(
-        metric_name="column_values.value_length_between",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("min_value", "max_value", "strict_min", "strict_max"),
-        metric_dependencies=tuple(),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.column_map_metric(
+    #     metric_name="column_values.value_length_between",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("min_value", "max_value", "strict_min", "strict_max"),
+    #     metric_dependencies=tuple(),
+    #     filter_column_isnull=True,
+    # )
     def _pandas_value_length_between(
         self,
         series: pd.Series,
@@ -119,13 +119,13 @@ class ExpectColumnValuesToBeOfType(ColumnMapDatasetExpectation):
 
         return pd.DataFrame({"column_values.value_length_between": metric_series})
 
-    @SqlAlchemyExecutionEngine.column_map_metric(
-        metric_name="column_values.value_length_between",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("min_value", "max_value", "strict_min", "strict_max"),
-        metric_dependencies=tuple(),
-        filter_column_isnull=True,
-    )
+    # @SqlAlchemyExecutionEngine.column_map_metric(
+    #     metric_name="column_values.value_length_between",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("min_value", "max_value", "strict_min", "strict_max"),
+    #     metric_dependencies=tuple(),
+    #     filter_column_isnull=True,
+    # )
     def _sqlalchemy_value_length_between(
         self,
         column: sa.column,

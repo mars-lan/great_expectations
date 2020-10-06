@@ -110,20 +110,20 @@ class ExpectColumnValuesToBeBetween(ColumnMapDatasetExpectation):
 
     """ A Column Map Metric Decorator for checking if a value is between given thresholds"""
 
-    @PandasExecutionEngine.column_map_metric(
-        metric_name="column_values.is_between",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=(
-            "min_value",
-            "max_value",
-            "strict_min",
-            "strict_max",
-            "allow_cross_type_comparisons",
-            "parse_strings_as_datetimes",
-        ),
-        metric_dependencies=(),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.column_map_metric(
+    #     metric_name="column_values.is_between",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=(
+    #         "min_value",
+    #         "max_value",
+    #         "strict_min",
+    #         "strict_max",
+    #         "allow_cross_type_comparisons",
+    #         "parse_strings_as_datetimes",
+    #     ),
+    #     metric_dependencies=(),
+    #     filter_column_isnull=True,
+    # )
     def _pandas_is_between(
         self,
         series: pd.Series,

@@ -6,6 +6,7 @@ del get_versions  # isort:skip
 
 from great_expectations.data_context import DataContext
 from great_expectations.expectations.core import *
+from great_expectations.expectations.metrics import *
 
 from .util import (
     from_pandas,

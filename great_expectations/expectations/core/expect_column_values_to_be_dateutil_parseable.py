@@ -90,13 +90,13 @@ class ExpectColumnValuesToBeDateutilParseable(ColumnMapDatasetExpectation):
             configuration = self.configuration
         return True
 
-    @PandasExecutionEngine.column_map_metric(
-        metric_name="column_values.dateutil_parsable",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=tuple(),
-        metric_dependencies=tuple(),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.column_map_metric(
+    #     metric_name="column_values.dateutil_parsable",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=tuple(),
+    #     metric_dependencies=tuple(),
+    #     filter_column_isnull=True,
+    # )
     def _pandas_column_values_dateutil_parsable(
         self,
         series: pd.Series,

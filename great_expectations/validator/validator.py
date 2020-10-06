@@ -25,7 +25,6 @@ from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
     ExpectationValidationResult,
 )
-from great_expectations.core.id_dict import IDDict
 from great_expectations.core.run_identifier import RunIdentifier
 from great_expectations.data_asset.util import recursively_convert_to_json_serializable
 from great_expectations.dataset import PandasDataset, SparkDFDataset, SqlAlchemyDataset
@@ -34,11 +33,9 @@ from great_expectations.exceptions import (
     GreatExpectationsError,
     InvalidExpectationConfigurationError,
 )
-from great_expectations.exceptions.metric_exceptions import MetricError
 from great_expectations.expectations.registry import (
     get_expectation_impl,
-    get_metric_dependencies,
-    get_metric_kwargs,
+    get_metric_provider,
     list_registered_expectation_implementations,
 )
 from great_expectations.marshmallow__shade import ValidationError
@@ -117,13 +114,11 @@ class Validator:
         validator_attrs = set(super().__dir__())
         class_expectation_impls = set(list_registered_expectation_implementations())
         execution_engine_expectation_impls = (
-            set(
-                [
-                    attr_name
-                    for attr_name in self.execution_engine.__dir__()
-                    if attr_name.startswith("expect_")
-                ]
-            )
+            {
+                attr_name
+                for attr_name in self.execution_engine.__dir__()
+                if attr_name.startswith("expect_")
+            }
             if self.execution_engine
             else set()
         )
@@ -244,85 +239,37 @@ class Validator:
     def _populate_dependencies(
         self,
         graph: ValidationGraph,
-        metric_name: str,
+        child_node: MetricEdgeKey,
         configuration: ExpectationConfiguration,
+        execution_engine: "ExecutionEngine",
         parent_node: Union[MetricEdgeKey, None] = None,
         runtime_configuration: Optional[dict] = None,
     ) -> None:
         """Obtain domain and value keys for metrics and proceeds to add these metrics to the validation graph
         until all metrics have been added."""
 
-        metric_kwargs = get_metric_kwargs(metric_name)
-
-        expectation_impl = get_expectation_impl(configuration.expectation_type)
-        configuration_kwargs = expectation_impl(
-            configuration=configuration
-        ).get_runtime_kwargs(runtime_configuration=runtime_configuration)
-        try:
-            if len(metric_kwargs["metric_domain_keys"]) > 0:
-                metric_domain_kwargs = IDDict(
-                    {
-                        k: configuration_kwargs.get(k)
-                        for k in metric_kwargs["metric_domain_keys"]
-                    }
-                )
-            else:
-                metric_domain_kwargs = IDDict()
-            if len(metric_kwargs["metric_value_keys"]) > 0:
-                metric_value_kwargs = IDDict(
-                    {
-                        k: configuration_kwargs.get(k)
-                        for k in metric_kwargs["metric_value_keys"]
-                    }
-                )
-            else:
-                metric_value_kwargs = IDDict()
-        except KeyError:
-            raise MetricError(
-                f"missing kwarg value while trying to identify dependency graph for metric {metric_name}"
-            )
-        # domain_id = metric_domain_kwargs.to_id()
-        # if domain_id not in graph_family:
-        #     graph_family[domain_id] = ValidationGraph(metric_domain_kwargs)
-
-        # graph = graph_family[domain_id]
-        metric_dependencies = get_metric_dependencies(metric_name)
+        # metric_kwargs = get_metric_kwargs(metric_name)
+        metric_impl = get_metric_provider(
+            child_node.metric_name, execution_engine=execution_engine
+        )[0]
+        metric_dependencies = metric_impl.get_evaluation_dependencies(
+            child_node, configuration
+        )
 
         if parent_node:
-            graph.add(
-                MetricEdge(
-                    parent_node,
-                    MetricEdgeKey(
-                        metric_name,
-                        metric_domain_kwargs,
-                        metric_value_kwargs,
-                        filter_column_isnull=metric_kwargs["filter_column_isnull"],
-                    ),
-                )
-            )
+            graph.add(MetricEdge(parent_node, child_node,))
 
         if len(metric_dependencies) == 0:
-            graph.add(
-                MetricEdge(
-                    MetricEdgeKey(
-                        metric_name,
-                        metric_domain_kwargs,
-                        metric_value_kwargs,
-                        filter_column_isnull=metric_kwargs["filter_column_isnull"],
-                    ),
-                    None,
-                )
-            )
+            graph.add(MetricEdge(child_node, None,))
 
         else:
-            for dependent_metric in metric_dependencies:
+            for metric_dependency in metric_dependencies.values():
                 self._populate_dependencies(
                     graph,
-                    dependent_metric,
+                    metric_dependency,
                     configuration,
-                    MetricEdgeKey(
-                        metric_name, metric_domain_kwargs, metric_value_kwargs
-                    ),
+                    execution_engine,
+                    child_node,
                     runtime_configuration=runtime_configuration,
                 )
 
@@ -364,13 +311,16 @@ class Validator:
                 configuration
             ).get_validation_dependencies(
                 configuration, execution_engine, runtime_configuration
-            )
+            )[
+                "metrics"
+            ]
 
-            for metric_name in validation_dependencies.get("metrics"):
+            for metric in validation_dependencies.values():
                 self._populate_dependencies(
                     graph,
-                    metric_name,
+                    metric,
                     configuration,
+                    execution_engine,
                     runtime_configuration=runtime_configuration,
                 )
 

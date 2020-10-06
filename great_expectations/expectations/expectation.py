@@ -21,7 +21,10 @@ from great_expectations.exceptions import (
     InvalidExpectationConfigurationError,
     InvalidExpectationKwargsError,
 )
-from great_expectations.expectations.registry import register_expectation
+from great_expectations.expectations.registry import (
+    get_metric_kwargs,
+    register_expectation,
+)
 from great_expectations.expectations.util import legacy_method_parameters
 
 from ..core.batch import Batch
@@ -36,6 +39,7 @@ from ..execution_engine import (
     SparkDFExecutionEngine,
 )
 from ..execution_engine.sqlalchemy_execution_engine import SqlAlchemyExecutionEngine
+from ..validator.validation_graph import MetricEdgeKey
 from ..validator.validator import Validator
 
 logger = logging.getLogger(__name__)
@@ -198,14 +202,12 @@ class Expectation(ABC, metaclass=MetaExpectation):
     ):
         """Construct the validation graph for this expectation."""
         return {
-            "domain": self.get_domain_kwargs(),
-            "success_kwargs": self.get_success_kwargs(),
             "result_format": parse_result_format(
                 self.get_runtime_kwargs(
                     runtime_configuration=runtime_configuration
                 ).get("result_format")
             ),
-            "metrics": tuple(),
+            "metrics": dict(),
         }
 
     def __check_validation_kwargs_definition(self):
@@ -391,9 +393,6 @@ class DatasetExpectation(Expectation, ABC):
         dependencies = super().get_validation_dependencies(
             configuration, execution_engine, runtime_configuration
         )
-        metric_dependencies = set(self.metric_dependencies)
-
-        dependencies["metrics"] = metric_dependencies
 
         return dependencies
 
@@ -405,28 +404,6 @@ class DatasetExpectation(Expectation, ABC):
         raise GreatExpectationsError(
             f"No parser found for backend: {str(execution_engine.__name__)}"
         )
-
-    @PandasExecutionEngine.metric(
-        metric_name="snippet",
-        metric_domain_keys=domain_keys,
-        metric_value_keys=tuple(),
-        metric_dependencies=tuple(),
-        bundle_computation=True,
-    )
-    def _snippet(
-        self,
-        batches: Dict[str, Batch],
-        execution_engine: PandasExecutionEngine,
-        metric_domain_kwargs: dict,
-        metric_value_kwargs: dict,
-        metrics: dict,
-        runtime_configuration: dict = None,
-        filter_column_isnull: bool = True,
-    ):
-        df = execution_engine.get_domain_dataframe(
-            domain_kwargs=metric_domain_kwargs, batches=batches
-        )
-        return df
 
     @staticmethod
     def _pandas_value_set_parser(value_set):
@@ -472,100 +449,80 @@ class ColumnMapDatasetExpectation(DatasetExpectation, ABC):
         dependencies = super().get_validation_dependencies(
             configuration, execution_engine, runtime_configuration
         )
-        metric_dependencies = set(self.metric_dependencies)
+        dependencies["metrics"] = dict()
+        metric_dependencies = dependencies["metrics"]  # just get a convenient name
+        # metric_dependencies = set(self.metric_dependencies)
+        for dependency in self.metric_dependencies:
+            metric_kwargs = get_metric_kwargs(
+                metric_name=dependency,
+                configuration=configuration,
+                runtime_configuration=runtime_configuration,
+            )
+            dependencies["metrics"][dependency] = MetricEdgeKey(
+                metric_name=dependency,
+                metric_domain_kwargs=metric_kwargs["metric_domain_kwargs"],
+                metric_value_kwargs=metric_kwargs["metric_value_kwargs"],
+            )
 
-        dependencies["metrics"] = metric_dependencies
         result_format_str = dependencies["result_format"].get("result_format")
         if result_format_str == "BOOLEAN_ONLY":
             return dependencies
 
-        metric_dependencies.add("column_values.count")
+        metric_kwargs = get_metric_kwargs(
+            metric_name="column.row_count",
+            configuration=configuration,
+            runtime_configuration=runtime_configuration,
+        )
+        metric_dependencies["column.row_count"] = MetricEdgeKey(
+            metric_name="column.row_count",
+            metric_domain_kwargs=metric_kwargs["metric_domain_kwargs"],
+            metric_value_kwargs=metric_kwargs["metric_value_kwargs"],
+        )
         assert isinstance(
             self.map_metric, str
-        ), "ColumnMapDatasetExpectation must override get_validation_dependencies or delcare exactly one map_metric"
-        metric_dependencies.add(self.map_metric + ".unexpected_values")
+        ), "ColumnMapDatasetExpectation must override get_validation_dependencies or declare exactly one map_metric"
+
+        metric_kwargs = get_metric_kwargs(
+            self.map_metric + ".unexpected_values",
+            configuration=configuration,
+            runtime_configuration=runtime_configuration,
+        )
+        metric_dependencies[self.map_metric + ".unexpected_values"] = MetricEdgeKey(
+            metric_name=self.map_metric + ".unexpected_values",
+            metric_domain_kwargs=metric_kwargs["metric_domain_kwargs"],
+            metric_value_kwargs=metric_kwargs["metric_value_kwargs"],
+        )
         # TODO:
         #
         # if ".unexpected_index_list" is a registered metric **for this engine**
         if result_format_str in ["BASIC", "SUMMARY"]:
             return dependencies
 
-        metric_dependencies.add(self.map_metric + ".unexpected_rows")
+        metric_kwargs = get_metric_kwargs(
+            self.map_metric + ".unexpected_rows",
+            configuration=configuration,
+            runtime_configuration=runtime_configuration,
+        )
+        metric_dependencies[self.map_metric + ".unexpected_rows"] = MetricEdgeKey(
+            metric_name=self.map_metric + ".unexpected_rows",
+            metric_domain_kwargs=metric_kwargs["metric_domain_kwargs"],
+            metric_value_kwargs=metric_kwargs["metric_value_kwargs"],
+        )
         if isinstance(execution_engine, PandasExecutionEngine):
-            metric_dependencies.add(self.map_metric + ".unexpected_index_list")
+            metric_kwargs = get_metric_kwargs(
+                self.map_metric + ".unexpected_index_list",
+                configuration=configuration,
+                runtime_configuration=runtime_configuration,
+            )
+            metric_dependencies[
+                self.map_metric + ".unexpected_index_list"
+            ] = MetricEdgeKey(
+                metric_name=self.map_metric + ".unexpected_index_list",
+                metric_domain_kwargs=metric_kwargs["metric_domain_kwargs"],
+                metric_value_kwargs=metric_kwargs["metric_value_kwargs"],
+            )
 
         return dependencies
-
-    @PandasExecutionEngine.metric(
-        metric_name="column_values.count",
-        metric_domain_keys=DatasetExpectation.domain_keys,
-        metric_value_keys=tuple(),
-        metric_dependencies=tuple(),
-        bundle_computation=False,
-        filter_column_isnull=False,
-    )
-    def _count(
-        self,
-        batches: Dict[str, Batch],
-        execution_engine: PandasExecutionEngine,
-        metric_domain_kwargs: dict,
-        metric_value_kwargs: dict,
-        metrics: dict,
-        runtime_configuration: dict = None,
-        filter_column_isnull: bool = False,
-    ):
-        df = execution_engine.get_domain_dataframe(
-            domain_kwargs=metric_domain_kwargs,
-            batches=batches,
-            filter_column_isnull=filter_column_isnull,
-        )
-        return df.shape[0]
-
-    @SqlAlchemyExecutionEngine.metric(
-        metric_name="column_values.count",
-        metric_domain_keys=DatasetExpectation.domain_keys,
-        metric_value_keys=tuple(),
-        metric_dependencies=tuple(),
-        bundle_computation=True,
-        filter_column_isnull=False,
-    )
-    def _count(
-        self,
-        batches: Dict[str, Batch],
-        execution_engine: SqlAlchemyExecutionEngine,
-        metric_domain_kwargs: dict,
-        metric_value_kwargs: dict,
-        metrics: dict,
-        runtime_configuration: dict = None,
-        filter_column_isnull: bool = False,
-    ):
-        import sqlalchemy as sa
-
-        table = execution_engine._get_selectable(
-            domain_kwargs=metric_domain_kwargs, batches=batches
-        )
-        return sa.func.count(sa.column(metric_domain_kwargs["column"])), table
-
-    @SparkDFExecutionEngine.metric(
-        metric_name="column_values.count",
-        metric_domain_keys=DatasetExpectation.domain_keys,
-        metric_value_keys=tuple(),
-        metric_dependencies=tuple(),
-        bundle_computation=False,
-        filter_column_isnull=False,
-    )
-    def _count(
-        self,
-        batches: Dict[str, Batch],
-        execution_engine: SparkDFExecutionEngine,
-        metric_domain_kwargs: dict,
-        metric_value_kwargs: dict,
-        metrics: dict,
-        runtime_configuration: dict = None,
-        filter_column_isnull: bool = False,
-    ):
-        data = execution_engine.get_domain_dataframe(metric_domain_kwargs, batches)
-        return data.count()
 
 
 def _calc_map_expectation_success(success_count, nonnull_count, mostly):

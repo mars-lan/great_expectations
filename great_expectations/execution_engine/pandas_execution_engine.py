@@ -4,7 +4,7 @@ import json
 import logging
 from functools import partial, wraps
 from io import StringIO
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type
 
 import jsonschema
 import numpy as np
@@ -758,6 +758,18 @@ Notes:
         else:
             return data
 
+    def _get_metric_domain_obj(
+        self,
+        domain_kwargs: dict,
+        batches: Dict[str, Batch] = None,
+        filter_column_isnull=True,
+    ):
+        return self.get_domain_dataframe(
+            domain_kwargs=domain_kwargs,
+            batches=batches,
+            filter_column_isnull=filter_column_isnull,
+        )
+
     def _column_map_count(
         self,
         metric_name: str,
@@ -810,18 +822,20 @@ Notes:
         if result_format["result_format"] == "COMPLETE":
             return list(
                 data[
-                    boolean_mapped_success_values[
-                        metric_name[: -len(".unexpected_values")]
-                    ]
+                    # boolean_mapped_success_values[
+                    #     metric_name[: -len(".unexpected_values")]
+                    # ]
+                    boolean_mapped_success_values
                     == False
                 ]
             )
         else:
             return list(
                 data[
-                    boolean_mapped_success_values[
-                        metric_name[: -len(".unexpected_values")]
-                    ]
+                    # boolean_mapped_success_values[
+                    #     metric_name[: -len(".unexpected_values")]
+                    # ]
+                    boolean_mapped_success_values
                     == False
                 ][: result_format["partial_unexpected_count"]]
             )
@@ -960,12 +974,7 @@ Notes:
 
     @classmethod
     def column_map_metric(
-        cls,
-        metric_name: str,
-        metric_domain_keys: Tuple[str, ...],
-        metric_value_keys: Tuple[str, ...],
-        metric_dependencies: Tuple[str, ...],
-        filter_column_isnull: bool = True,
+        cls, metric_class: Type["Metric"],
     ):
         """
         A decorator for declaring a metric provider for instances of map Expectations, registering the metric itself
@@ -974,6 +983,11 @@ Notes:
         Returns:
             A generic metric provider function to be molded by the metric instance itself.
         """
+
+        metric_name = metric_class.metric_name
+        metric_domain_keys = metric_class.domain_keys
+        metric_value_keys = metric_class.value_keys
+        filter_column_isnull = metric_class.filter_column_isnull
 
         def outer(metric_fn: Callable):
             _declared_name = metric_name
@@ -998,10 +1012,11 @@ Notes:
                 )
                 return metric_fn(
                     self,
-                    series=series,
+                    domain=series,
                     metrics=metrics,
                     metric_domain_kwargs=metric_domain_kwargs,
                     metric_value_kwargs=metric_value_kwargs,
+                    **metric_value_kwargs,
                     **kwargs,
                 )
 
@@ -1010,7 +1025,7 @@ Notes:
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=metric_value_keys,
                 execution_engine=cls,
-                metric_dependencies=metric_dependencies,
+                metric_class=metric_class,
                 metric_provider=inner_func,
                 bundle_computation=True,
                 filter_column_isnull=filter_column_isnull,
@@ -1020,7 +1035,7 @@ Notes:
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=metric_value_keys,
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_count,
                 filter_column_isnull=filter_column_isnull,
             )
@@ -1030,7 +1045,7 @@ Notes:
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=(*metric_value_keys, "result_format"),
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_values,
                 filter_column_isnull=filter_column_isnull,
             )
@@ -1040,7 +1055,7 @@ Notes:
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=(*metric_value_keys, "result_format"),
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_value_counts,
                 filter_column_isnull=filter_column_isnull,
             )
@@ -1050,7 +1065,7 @@ Notes:
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=(*metric_value_keys, "result_format"),
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_rows,
                 filter_column_isnull=filter_column_isnull,
             )
@@ -1060,13 +1075,124 @@ Notes:
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=(*metric_value_keys, "result_format"),
                 execution_engine=cls,
-                metric_dependencies=(metric_name,),
+                metric_class=metric_class,
                 metric_provider=cls._column_map_index,
                 filter_column_isnull=filter_column_isnull,
             )
             return inner_func
 
         return outer
+
+    #
+    # @classmethod
+    # def column_map_metric(
+    #     cls,
+    #     metric_name: str,
+    #     metric_domain_keys: Tuple[str, ...],
+    #     metric_value_keys: Tuple[str, ...],
+    #     metric_dependencies: Tuple[str, ...],
+    #     filter_column_isnull: bool = True,
+    # ):
+    #     """
+    #     A decorator for declaring a metric provider for instances of map Expectations, registering the metric itself
+    #     and several specialized column map sub methods used to provide further information about the Expectation itself.
+    #
+    #     Returns:
+    #         A generic metric provider function to be molded by the metric instance itself.
+    #     """
+    #
+    #     def outer(metric_fn: Callable):
+    #         _declared_name = metric_name
+    #
+    #         @wraps(metric_fn)
+    #         def inner_func(
+    #             self,
+    #             metric_name: str,
+    #             batches: Dict[str, Batch],
+    #             execution_engine: PandasExecutionEngine,
+    #             metric_domain_kwargs: dict,
+    #             metric_value_kwargs: dict,
+    #             metrics: Dict[Tuple, Any],
+    #             **kwargs,
+    #         ):
+    #             if _declared_name != metric_name:
+    #                 logger.warning("using metric provider with an unrecognized metric")
+    #             series = execution_engine.get_domain_dataframe(
+    #                 batches=batches,
+    #                 domain_kwargs=metric_domain_kwargs,
+    #                 filter_column_isnull=filter_column_isnull,
+    #             )
+    #             return metric_fn(
+    #                 self,
+    #                 series=series,
+    #                 metrics=metrics,
+    #                 metric_domain_kwargs=metric_domain_kwargs,
+    #                 metric_value_kwargs=metric_value_kwargs,
+    #                 **kwargs,
+    #             )
+    #
+    #         register_metric(
+    #             metric_name=metric_name,
+    #             metric_domain_keys=metric_domain_keys,
+    #             metric_value_keys=metric_value_keys,
+    #             execution_engine=cls,
+    #             metric_dependencies=metric_dependencies,
+    #             metric_provider=inner_func,
+    #             bundle_computation=True,
+    #             filter_column_isnull=filter_column_isnull,
+    #         )
+    #         register_metric(
+    #             metric_name=metric_name + ".count",
+    #             metric_domain_keys=metric_domain_keys,
+    #             metric_value_keys=metric_value_keys,
+    #             execution_engine=cls,
+    #             metric_dependencies=(metric_name,),
+    #             metric_provider=cls._column_map_count,
+    #             filter_column_isnull=filter_column_isnull,
+    #         )
+    #         # noinspection PyTypeChecker
+    #         register_metric(
+    #             metric_name=metric_name + ".unexpected_values",
+    #             metric_domain_keys=metric_domain_keys,
+    #             metric_value_keys=(*metric_value_keys, "result_format"),
+    #             execution_engine=cls,
+    #             metric_dependencies=(metric_name,),
+    #             metric_provider=cls._column_map_values,
+    #             filter_column_isnull=filter_column_isnull,
+    #         )
+    #         # noinspection PyTypeChecker
+    #         register_metric(
+    #             metric_name=metric_name + ".unexpected_value_counts",
+    #             metric_domain_keys=metric_domain_keys,
+    #             metric_value_keys=(*metric_value_keys, "result_format"),
+    #             execution_engine=cls,
+    #             metric_dependencies=(metric_name,),
+    #             metric_provider=cls._column_map_value_counts,
+    #             filter_column_isnull=filter_column_isnull,
+    #         )
+    #         # noinspection PyTypeChecker
+    #         register_metric(
+    #             metric_name=metric_name + ".unexpected_rows",
+    #             metric_domain_keys=metric_domain_keys,
+    #             metric_value_keys=(*metric_value_keys, "result_format"),
+    #             execution_engine=cls,
+    #             metric_dependencies=(metric_name,),
+    #             metric_provider=cls._column_map_rows,
+    #             filter_column_isnull=filter_column_isnull,
+    #         )
+    #         # noinspection PyTypeChecker
+    #         register_metric(
+    #             metric_name=metric_name + ".unexpected_index_list",
+    #             metric_domain_keys=metric_domain_keys,
+    #             metric_value_keys=(*metric_value_keys, "result_format"),
+    #             execution_engine=cls,
+    #             metric_dependencies=(metric_name,),
+    #             metric_provider=cls._column_map_index,
+    #             filter_column_isnull=filter_column_isnull,
+    #         )
+    #         return inner_func
+    #
+    #     return outer
 
     def batch_resolve(
         self,

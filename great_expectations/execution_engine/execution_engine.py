@@ -6,7 +6,18 @@ from datetime import datetime
 from functools import lru_cache, wraps
 from itertools import zip_longest
 from numbers import Number
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import numpy as np
 import pandas as pd
@@ -234,13 +245,7 @@ class ExecutionEngine(MetaExecutionEngine):
 
     @classmethod
     def metric(
-        cls,
-        metric_name: str,
-        metric_domain_keys: tuple,
-        metric_value_keys: tuple,
-        metric_dependencies: tuple,
-        bundle_computation: bool = False,
-        filter_column_isnull: bool = True,
+        cls, metric_class: Type["Metric"],
     ):
         """A decorator for the metric provider, which takes in domain and value keys and uses these values to define
         and access values needed to compute the metric (with the domain keys defining the values to be used for
@@ -267,6 +272,11 @@ class ExecutionEngine(MetaExecutionEngine):
         Returns:
             A metric function that will provide specific instructions for the calculation of the metric.
         """
+        metric_name = metric_class.metric_name
+        metric_domain_keys = metric_class.domain_keys
+        metric_value_keys = metric_class.value_keys
+        bundle_computation = metric_class.bundle_computation
+        filter_column_isnull = getattr(metric_class, "filter_column_isnull", True)
 
         def outer(metric_fn: Callable):
             _declared_name = metric_name
@@ -288,14 +298,19 @@ class ExecutionEngine(MetaExecutionEngine):
                     logger.warning(
                         "using validator provider with an unrecognized metric"
                     )
+                domain = self._get_metric_domain_obj(
+                    domain_kwargs=metric_domain_kwargs, batches=batches
+                )
                 return metric_fn(
                     self,
+                    domain=domain,
                     batches=batches,
                     execution_engine=execution_engine,
                     metric_domain_kwargs=metric_domain_kwargs,
                     metric_value_kwargs=metric_value_kwargs,
                     metrics=metrics,
-                    # **kwargs,
+                    **metric_value_kwargs,
+                    **kwargs,
                 )
 
             # The specific metric function is being returned, but first it is registered within the registry itself
@@ -304,7 +319,7 @@ class ExecutionEngine(MetaExecutionEngine):
                 metric_domain_keys=metric_domain_keys,
                 metric_value_keys=metric_value_keys,
                 execution_engine=cls,
-                metric_dependencies=metric_dependencies,
+                metric_class=metric_class,
                 metric_provider=inner_func,
                 bundle_computation=bundle_computation,
                 filter_column_isnull=filter_column_isnull,
@@ -647,7 +662,7 @@ class ExecutionEngine(MetaExecutionEngine):
             else:
                 metric_provider = get_metric_provider(
                     metric_name=metric_to_resolve.metric_name, execution_engine=self
-                )
+                )[1]
                 metric_provider_kwargs = {
                     "metric_name": metric_to_resolve.metric_name,
                     "batches": batches,
@@ -671,6 +686,7 @@ class ExecutionEngine(MetaExecutionEngine):
         return metrics
 
     # Todo: why is this not implemented?
+    # JPC: ^^^ It is implemented in subclasses that know how their own batching works
     def batch_resolve(self, resolve_batch, metrics):
         raise NotImplementedError
 

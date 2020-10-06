@@ -105,13 +105,13 @@ class ExpectColumnValuesToMatchStrftimeFormat(ColumnMapDatasetExpectation):
 
         return True
 
-    @PandasExecutionEngine.column_map_metric(
-        metric_name="column_values.match_strftime_format",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("strftime_format",),
-        metric_dependencies=tuple(),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.column_map_metric(
+    #     metric_name="column_values.match_strftime_format",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("strftime_format",),
+    #     metric_dependencies=tuple(),
+    #     filter_column_isnull=True,
+    # )
     def _pandas_column_values_match_strftime_format(
         self,
         series: pd.Series,

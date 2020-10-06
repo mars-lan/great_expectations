@@ -98,13 +98,13 @@ class ExpectColumnMinToBeBetween(DatasetExpectation):
 
     """ A Column Map Metric Decorator for the Minimum"""
 
-    @PandasExecutionEngine.metric(
-        metric_name="column.aggregate.min",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=(),
-        metric_dependencies=tuple(),
-        filter_column_isnull=False,
-    )
+    # @PandasExecutionEngine.metric(
+    #        metric_name="column.aggregate.min",
+    #        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #        metric_value_keys=(),
+    #        metric_dependencies=tuple(),
+    #        filter_column_isnull=False,
+    #    )
     def _pandas_min(
         self,
         batches: Dict[str, Batch],

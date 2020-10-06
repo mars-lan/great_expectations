@@ -84,13 +84,13 @@ class ExpectColumnValuesToBeDecreasing(ColumnMapDatasetExpectation):
     def validate_configuration(self, configuration: Optional[ExpectationConfiguration]):
         return super().validate_configuration(configuration)
 
-    @PandasExecutionEngine.column_map_metric(
-        metric_name="column_values.decreasing",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("strictly",),
-        metric_dependencies=tuple(),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.column_map_metric(
+    #     metric_name="column_values.decreasing",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("strictly",),
+    #     metric_dependencies=tuple(),
+    #     filter_column_isnull=True,
+    # )
     def _pandas_column_values_decreasing(
         self,
         series: pd.Series,

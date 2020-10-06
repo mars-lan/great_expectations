@@ -128,13 +128,13 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
             raise InvalidExpectationConfigurationError(str(e))
         return True
 
-    @PandasExecutionEngine.column_map_metric(
-        metric_name="column_values.in_set",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("value_set",),
-        metric_dependencies=tuple(),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.column_map_metric(
+    #     metric_name="column_values.in_set",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("value_set",),
+    #     metric_dependencies=tuple(),
+    #     filter_column_isnull=True,
+    # )
     def _pandas_column_values_in_set(
         self,
         series: pd.Series,
@@ -157,12 +157,12 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
 
         return pd.DataFrame({"column_values.in_set": series.isin(parsed_value_set)})
 
-    @SqlAlchemyExecutionEngine.column_map_metric(
-        metric_name="column_values.in_set",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("value_set",),
-        metric_dependencies=tuple(),
-    )
+    # @SqlAlchemyExecutionEngine.column_map_metric(
+    #     metric_name="column_values.in_set",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("value_set",),
+    #     metric_dependencies=tuple(),
+    # )
     def _sqlalchemy_in_set(
         self,
         column: sa.column,
@@ -180,12 +180,12 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
 
         return column.in_(tuple(value_set))
 
-    @SparkDFExecutionEngine.column_map_metric(
-        metric_name="column_values.in_set",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=("value_set",),
-        metric_dependencies=tuple(),
-    )
+    # @SparkDFExecutionEngine.column_map_metric(
+    #     metric_name="column_values.in_set",
+    #     metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #     metric_value_keys=("value_set",),
+    #     metric_dependencies=tuple(),
+    # )
     def _spark_in_set(
         self,
         column: "pyspark.sql.Column",
@@ -255,8 +255,3 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
                 "column_values.in_set.unexpected_index_list"
             ),
         )
-
-    #
-    # @renders(StringTemplate, modes=())
-    # def lkjdsf(self, mode={prescriptive}, {descriptive}, {valiation}):
-    #     return "I'm a thing"

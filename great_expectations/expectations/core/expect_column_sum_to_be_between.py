@@ -91,13 +91,13 @@ class ExpectColumnSumToBeBetween(DatasetExpectation):
 
     """ A Column Map Metric Decorator for the Sum"""
 
-    @PandasExecutionEngine.metric(
-        metric_name="column.aggregate.sum",
-        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
-        metric_value_keys=(),
-        metric_dependencies=tuple(),
-        filter_column_isnull=True,
-    )
+    # @PandasExecutionEngine.metric(
+    #        metric_name="column.aggregate.sum",
+    #        metric_domain_keys=ColumnMapDatasetExpectation.domain_keys,
+    #        metric_value_keys=(),
+    #        metric_dependencies=tuple(),
+    #        filter_column_isnull=True,
+    #    )
     def _pandas_sum(
         self,
         batches: Dict[str, Batch],
