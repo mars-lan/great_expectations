@@ -179,7 +179,7 @@ class ExpectColumnValuesToNotMatchRegex(ColumnMapDatasetExpectation):
     #
     #     return data.withColumn(column + "__success", F.col(column).isin(regex))
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

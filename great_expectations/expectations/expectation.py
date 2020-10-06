@@ -28,6 +28,7 @@ from great_expectations.expectations.registry import (
 from great_expectations.expectations.util import legacy_method_parameters
 
 from ..core.batch import Batch
+from ..core.util import nested_update
 from ..data_asset.util import (
     parse_result_format,
     recursively_convert_to_json_serializable,
@@ -62,6 +63,14 @@ class MetaExpectation(ABCMeta):
         if not isabstract(newclass):
             newclass.expectation_type = camel_to_snake(clsname)
             register_expectation(newclass)
+        default_kwarg_values = dict()
+        for base in reversed(bases):
+            default_kwargs = getattr(base, "default_kwarg_values", dict())
+            default_kwarg_values = nested_update(default_kwarg_values, default_kwargs)
+
+        newclass.default_kwarg_values = nested_update(
+            default_kwarg_values, attrs.get("default_kwarg_values", dict())
+        )
         return newclass
 
 
@@ -76,10 +85,12 @@ class Expectation(ABC, metaclass=MetaExpectation):
         "catch_exceptions",
         "result_format",
     )
+    default_kwarg_values = {
+        "include_config": True,
+        "catch_exception": False,
+        "result_format": "BASIC",
+    }
     legacy_method_parameters = legacy_method_parameters
-
-    _validators = dict()
-    _post_validation_hooks = list()
 
     def __init__(self, configuration: Optional[ExpectationConfiguration] = None):
         if configuration is not None:
@@ -91,7 +102,13 @@ class Expectation(ABC, metaclass=MetaExpectation):
         return cls.domain_keys + cls.success_keys + cls.runtime_keys
 
     # TODO: revise signature; revise decorator
-    def _validates(self, *args, **kwargs):
+    def _validate(
+        self,
+        configuration: ExpectationConfiguration,
+        metrics: Dict[str, Any],
+        runtime_configuration: dict,
+        execution_engine: ExecutionEngine,
+    ):
         raise NotImplementedError
 
     def metrics_validate(
@@ -112,104 +129,12 @@ class Expectation(ABC, metaclass=MetaExpectation):
         for name, metric_edge_key in requested_metrics.items():
             provided_metrics[name] = metrics[metric_edge_key.id]
 
-        # # TODO: REMOVE MULTIPLE VALIDATORS
-        assert len(self._validators) == 1
-        validator_fn = self._validators[list(self._validators.keys())[0]][1]
-
-        return validator_fn(
-            self,
-            configuration,
+        return self._validate(
+            configuration=configuration,
             metrics=provided_metrics,
             runtime_configuration=runtime_configuration,
             execution_engine=execution_engine,
         )
-
-        # # TODO: REMOVE MULTIPLE VALIDATORS
-        #
-        # available_metrics = {metric[0] for metric in metrics.keys()}
-        # available_validators = sorted(
-        #     [
-        #         (
-        #             validators_key[0],  # expectation class name
-        #             validators_key[1],  # validator name
-        #             set(validators_key[2]),  # metric dependencies
-        #             validator_fn,
-        #         )
-        #         for (validators_key, validator_fn) in self._validators.items()
-        #     ],
-        #     key=lambda x: len(x[0][2]),
-        # )
-        # validator_name = self.get_validator_name()
-        # for (
-        #     expectation_class_name,
-        #     declared_validator_name,
-        #     metric_deps,
-        #     validator_fn,
-        # ) in available_validators:
-        #     # if metric_deps <= available_metrics:
-        #     if (
-        #         expectation_class_name == self.__class__.__name__
-        #         and metric_deps
-        #         <= available_metrics  # set comparison: metric_deps is a subset of available_metrics
-        #         and validator_name == declared_validator_name
-        #     ):
-        #         return validator_fn(
-        #             self,
-        #             configuration,
-        #             metrics,
-        #             runtime_configuration=runtime_configuration,
-        #             execution_engine=execution_engine,
-        #         )
-        # raise MetricError("No validator found for available metrics")
-
-    @classmethod
-    def validates(cls, metric_dependencies: tuple, validator_name: str = "default"):
-        def outer(validator: Callable):
-            validators_key = (cls.__name__, validator_name, metric_dependencies)
-            if validators_key in cls._validators:
-                if validator == cls._validators[validators_key]:
-                    logger.info(
-                        f"Multiple declarations of validator with metric dag: {str(validators_key)} found."
-                    )
-                    return
-                else:
-                    logger.warning(
-                        f"Overwriting declaration of validator with metric dag: {str(validators_key)}."
-                    )
-            logger.debug(f"Registering validator: {str(validators_key)}")
-
-            @wraps(validator)
-            def inner_func(self, *args, **kwargs):
-                raw_response = validator(self, *args, **kwargs)
-                return self._build_evr(raw_response)
-
-            cls._validators[
-                (
-                    validator.__qualname__.split(".")[0],  # expectation class name
-                    validator_name,
-                    metric_dependencies,
-                )
-            ] = inner_func
-
-            return inner_func
-
-        return outer
-
-    # @classmethod
-    # def post_validation(cls, func: Callable):
-    #
-    #     @wraps(func)
-    #     def hook(raw_response: Any):
-    #         return func(raw_response)
-    #
-    #     cls._post_validation_hooks.append(hook)
-    #
-    #     return hook
-    #
-    # def _process_post_validation_hooks(self, raw_response):
-    #     for hook in self._post_validation_hooks:
-    #         res = hook(raw_response)
-    #     return raw_response
 
     def _build_evr(self, raw_response):
         if not isinstance(raw_response, ExpectationValidationResult):
@@ -230,7 +155,8 @@ class Expectation(ABC, metaclass=MetaExpectation):
         return {
             "result_format": parse_result_format(
                 self.get_runtime_kwargs(
-                    runtime_configuration=runtime_configuration
+                    configuration=configuration,
+                    runtime_configuration=runtime_configuration,
                 ).get("result_format")
             ),
             "metrics": dict(),
@@ -449,6 +375,7 @@ class ColumnMapDatasetExpectation(DatasetExpectation, ABC):
     map_metric = None
     metric_dependencies = "column_values.nonnull.count"
     success_keys = ("mostly",)
+    default_kwarg_values = {"mostly": 1}
 
     def validate_configuration(self, configuration: Optional[ExpectationConfiguration]):
         super().validate_configuration(configuration)
@@ -549,6 +476,46 @@ class ColumnMapDatasetExpectation(DatasetExpectation, ABC):
             )
 
         return dependencies
+
+    def _validate(
+        self,
+        configuration: ExpectationConfiguration,
+        metrics: dict,
+        runtime_configuration: dict = None,
+        execution_engine: ExecutionEngine = None,
+    ):
+
+        if runtime_configuration:
+            result_format = runtime_configuration.get(
+                "result_format",
+                configuration.kwargs.get(
+                    "result_format", self.default_kwarg_values.get("result_format")
+                ),
+            )
+        else:
+            result_format = configuration.kwargs.get(
+                "result_format", self.default_kwarg_values.get("result_format")
+            )
+        mostly = self.get_success_kwargs().get(
+            "mostly", self.default_kwarg_values.get("mostly")
+        )
+        success = (
+            metrics["column_values.in_set.count"]
+            / metrics["column_values.nonnull.count"]
+        )
+
+        return _format_map_output(
+            result_format=parse_result_format(result_format),
+            success=success >= mostly,
+            element_count=metrics.get("column.row_count"),
+            nonnull_count=metrics.get("column_values.nonnull.count"),
+            unexpected_count=metrics.get("column_values.nonnull.count")
+            - metrics.get(self.map_metric),
+            unexpected_list=metrics.get(self.map_metric + ".unexpected_values"),
+            unexpected_index_list=metrics.get(
+                self.map_metric + ".unexpected_index_list"
+            ),
+        )
 
 
 def _calc_map_expectation_success(success_count, nonnull_count, mostly):

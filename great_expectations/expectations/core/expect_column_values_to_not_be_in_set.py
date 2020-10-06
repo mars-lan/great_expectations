@@ -153,7 +153,7 @@ class ExpectColumnValuesToNotBeInSet(ColumnMapDatasetExpectation):
             {"column_values.not_in_set": ~series.isin(parsed_value_set)}
         )
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

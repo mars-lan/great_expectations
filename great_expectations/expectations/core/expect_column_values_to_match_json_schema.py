@@ -183,7 +183,7 @@ class ExpectColumnValuesToMatchJsonSchema(ColumnMapDatasetExpectation):
     #
     #     return data.withColumn(column + "__success", F.col(column).isin(json))
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

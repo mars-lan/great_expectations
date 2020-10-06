@@ -172,7 +172,7 @@ class ExpectColumnValuesToBeOfType(ColumnMapDatasetExpectation):
             else:
                 return sa.func.length(column) >= min_value
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

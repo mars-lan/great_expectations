@@ -151,8 +151,7 @@ class ExpectColumnDistinctValuesToBeInSet(DatasetExpectation):
             raise InvalidExpectationConfigurationError(str(e))
         return True
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
-    def _validates(
+    def validate(
         self,
         configuration: ExpectationConfiguration,
         metrics: dict,

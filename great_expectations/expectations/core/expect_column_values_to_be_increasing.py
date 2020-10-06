@@ -206,7 +206,7 @@ class ExpectColumnValuesToBeIncreasing(ColumnMapDatasetExpectation):
                 when(col("diff") >= 0, lit(True)).otherwise(lit(False)),
             )
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

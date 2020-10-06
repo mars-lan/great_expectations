@@ -111,7 +111,7 @@ class ExpectColumnValuesToBeDecreasing(ColumnMapDatasetExpectation):
         else:
             return pd.DataFrame({"column_values.decreasing": series_diff <= 0})
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

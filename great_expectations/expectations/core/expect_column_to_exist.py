@@ -134,7 +134,7 @@ class ExpectColumnToExist(DatasetExpectation):
             raise InvalidExpectationConfigurationError(str(e))
         return True
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

@@ -160,7 +160,7 @@ class ExpectColumnPairValuesAToBeGreaterThanB(DatasetExpectation):
         else:
             return temp_column_A > temp_column_B
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

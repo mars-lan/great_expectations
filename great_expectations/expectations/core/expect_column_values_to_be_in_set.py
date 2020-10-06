@@ -1,26 +1,11 @@
-from typing import Dict, List, Optional, Union
-
-import numpy as np
-import pandas as pd
+from typing import Optional
 
 from great_expectations.core.expectation_configuration import ExpectationConfiguration
-from great_expectations.execution_engine import (
-    ExecutionEngine,
-    PandasExecutionEngine,
-    SparkDFExecutionEngine,
-)
 
-from ...core.batch import Batch
-from ...data_asset.util import parse_result_format
-from ...execution_engine.sqlalchemy_execution_engine import SqlAlchemyExecutionEngine
-from ...validator.validation_graph import MetricEdgeKey
 from ..expectation import (
     ColumnMapDatasetExpectation,
-    Expectation,
     InvalidExpectationConfigurationError,
-    _format_map_output,
 )
-from ..registry import extract_metrics, get_metric_kwargs
 
 try:
     import sqlalchemy as sa
@@ -106,15 +91,7 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
         "parse_strings_as_datetimes",
     )
 
-    default_kwarg_values = {
-        "row_condition": None,
-        "condition_parser": None,  # we expect this to be explicitly set whenever a row_condition is passed
-        "mostly": 1,
-        "parse_strings_as_datetimes": None,
-        "result_format": "BASIC",
-        "include_config": True,
-        "catch_exceptions": True,
-    }
+    default_kwarg_values = {"value_set": None, "parse_strings_as_datetimes": False}
 
     def validate_configuration(self, configuration: Optional[ExpectationConfiguration]):
         super().validate_configuration(configuration)
@@ -128,75 +105,3 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
         except AssertionError as e:
             raise InvalidExpectationConfigurationError(str(e))
         return True
-
-    @Expectation.validates(metric_dependencies=metric_dependencies)
-    def _validates(
-        self,
-        configuration: ExpectationConfiguration,
-        metrics: dict,
-        runtime_configuration: dict = None,
-        execution_engine: ExecutionEngine = None,
-    ):
-        # metric_dependencies = self.get_validation_dependencies(
-        #     configuration, execution_engine, runtime_configuration
-        # )["metrics"]
-        # metric_vals = extract_metrics(
-        #     metric_dependencies, metrics, configuration, runtime_configuration
-        # )
-        # mostly = self.get_success_kwargs().get(
-        #     "mostly", self.default_kwarg_values.get("mostly")
-        # )
-        # if runtime_configuration:
-        #     result_format = runtime_configuration.get(
-        #         "result_format",
-        #         configuration.kwargs.get(
-        #             "result_format", self.default_kwarg_values.get("result_format")
-        #         ),
-        #     )
-        # else:
-        #     result_format = configuration.kwargs.get(
-        #         "result_format", self.default_kwarg_values.get("result_format")
-        #     )
-        #
-        # if metric_vals.get("column_values.nonnull.count") > 0:
-        #     success = metric_vals.get("column_values.in_set.count") / metric_vals.get(
-        #         "column_values.nonnull.count"
-        #     )
-        # else:
-        #     # TODO: Setting this to 1 based on the notion that tests on empty columns should be vacuously true. Confirm.
-        #     success = 1
-
-        user_metrics = dict()
-        metrics_we_want = self.get_validation_dependencies(
-            configuration,
-            execution_engine=execution_engine,
-            runtime_configuration=runtime_configuration,
-        )["metrics"]
-        for name, id in metrics_we_want.items():
-            user_metrics[name] = metrics[id]
-
-        metric_kwargs = get_metric_kwargs(
-            "column_values.in_set.count",
-            configuration=configuration,
-            runtime_configuration=runtime_configuration,
-        )
-        value_count = metrics.get(
-            MetricEdgeKey(
-                metric_name="column_values.in_set.count",
-                metric_domain_kwargs=metric_kwargs["metric_domain_kwargs"],
-                metric_value_kwargs=metric_kwargs["metric_value_kwargs"],
-            ).id
-        )
-
-        return _format_map_output(
-            result_format=parse_result_format(result_format),
-            success=success >= mostly,
-            element_count=metric_vals.get("column_values.count"),
-            nonnull_count=metric_vals.get("column_values.nonnull.count"),
-            unexpected_count=metric_vals.get("column_values.nonnull.count")
-            - metric_vals.get("column_values.in_set.count"),
-            unexpected_list=metric_vals.get("column_values.in_set.unexpected_values"),
-            unexpected_index_list=metric_vals.get(
-                "column_values.in_set.unexpected_index_list"
-            ),
-        )

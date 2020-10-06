@@ -135,7 +135,7 @@ class ExpectColumnValuesToNotMatchRegexList(ColumnMapDatasetExpectation):
             {"column_values.not_match_regex_list": ~regex_match_df.any(axis="columns")}
         )
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,

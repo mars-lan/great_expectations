@@ -148,7 +148,7 @@ class ExpectColumnValuesToMatchRegexList(ColumnMapDatasetExpectation):
 
         return pd.DataFrame({"column_values.match_regex_list": result})
 
-    @Expectation.validates(metric_dependencies=metric_dependencies)
+    # @Expectation.validates(metric_dependencies=metric_dependencies)
     def _validates(
         self,
         configuration: ExpectationConfiguration,
