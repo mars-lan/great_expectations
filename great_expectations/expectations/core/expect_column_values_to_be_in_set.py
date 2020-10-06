@@ -166,6 +166,15 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
         #     # TODO: Setting this to 1 based on the notion that tests on empty columns should be vacuously true. Confirm.
         #     success = 1
 
+        user_metrics = dict()
+        metrics_we_want = self.get_validation_dependencies(
+            configuration,
+            execution_engine=execution_engine,
+            runtime_configuration=runtime_configuration,
+        )["metrics"]
+        for name, id in metrics_we_want.items():
+            user_metrics[name] = metrics[id]
+
         metric_kwargs = get_metric_kwargs(
             "column_values.in_set.count",
             configuration=configuration,

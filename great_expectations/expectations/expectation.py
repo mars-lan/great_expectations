@@ -90,6 +90,10 @@ class Expectation(ABC, metaclass=MetaExpectation):
     def get_allowed_config_keys(cls):
         return cls.domain_keys + cls.success_keys + cls.runtime_keys
 
+    # TODO: revise signature; revise decorator
+    def _validates(self, *args, **kwargs):
+        raise NotImplementedError
+
     def metrics_validate(
         self,
         metrics: dict,
@@ -99,42 +103,64 @@ class Expectation(ABC, metaclass=MetaExpectation):
     ) -> "ExpectationValidationResult":
         if configuration is None:
             configuration = self.configuration
+        provided_metrics = dict()
+        requested_metrics = self.get_validation_dependencies(
+            configuration,
+            execution_engine=execution_engine,
+            runtime_configuration=runtime_configuration,
+        )["metrics"]
+        for name, metric_edge_key in requested_metrics.items():
+            provided_metrics[name] = metrics[metric_edge_key.id]
 
-        available_metrics = {metric[0] for metric in metrics.keys()}
-        available_validators = sorted(
-            [
-                (
-                    validators_key[0],  # expectation class name
-                    validators_key[1],  # validator name
-                    set(validators_key[2]),  # metric dependencies
-                    validator_fn,
-                )
-                for (validators_key, validator_fn) in self._validators.items()
-            ],
-            key=lambda x: len(x[0][2]),
+        # # TODO: REMOVE MULTIPLE VALIDATORS
+        assert len(self._validators) == 1
+        validator_fn = self._validators[list(self._validators.keys())[0]][1]
+
+        return validator_fn(
+            self,
+            configuration,
+            metrics=provided_metrics,
+            runtime_configuration=runtime_configuration,
+            execution_engine=execution_engine,
         )
-        validator_name = self.get_validator_name()
-        for (
-            expectation_class_name,
-            declared_validator_name,
-            metric_deps,
-            validator_fn,
-        ) in available_validators:
-            # if metric_deps <= available_metrics:
-            if (
-                expectation_class_name == self.__class__.__name__
-                and metric_deps
-                <= available_metrics  # set comparison: metric_deps is a subset of available_metrics
-                and validator_name == declared_validator_name
-            ):
-                return validator_fn(
-                    self,
-                    configuration,
-                    metrics,
-                    runtime_configuration=runtime_configuration,
-                    execution_engine=execution_engine,
-                )
-        raise MetricError("No validator found for available metrics")
+
+        # # TODO: REMOVE MULTIPLE VALIDATORS
+        #
+        # available_metrics = {metric[0] for metric in metrics.keys()}
+        # available_validators = sorted(
+        #     [
+        #         (
+        #             validators_key[0],  # expectation class name
+        #             validators_key[1],  # validator name
+        #             set(validators_key[2]),  # metric dependencies
+        #             validator_fn,
+        #         )
+        #         for (validators_key, validator_fn) in self._validators.items()
+        #     ],
+        #     key=lambda x: len(x[0][2]),
+        # )
+        # validator_name = self.get_validator_name()
+        # for (
+        #     expectation_class_name,
+        #     declared_validator_name,
+        #     metric_deps,
+        #     validator_fn,
+        # ) in available_validators:
+        #     # if metric_deps <= available_metrics:
+        #     if (
+        #         expectation_class_name == self.__class__.__name__
+        #         and metric_deps
+        #         <= available_metrics  # set comparison: metric_deps is a subset of available_metrics
+        #         and validator_name == declared_validator_name
+        #     ):
+        #         return validator_fn(
+        #             self,
+        #             configuration,
+        #             metrics,
+        #             runtime_configuration=runtime_configuration,
+        #             execution_engine=execution_engine,
+        #         )
+        # raise MetricError("No validator found for available metrics")
 
     @classmethod
     def validates(cls, metric_dependencies: tuple, validator_name: str = "default"):
